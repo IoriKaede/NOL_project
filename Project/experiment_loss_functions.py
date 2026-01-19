@@ -67,7 +67,7 @@ neural_network = NeuralNetwork(
 
 # Set training configuration
 learning_rate = 3e-3
-epochs = 1 #change epoch here <-
+epochs = 30 #change epoch here <-
 
 results = {}
 loss_functions = { #loss fct setting
