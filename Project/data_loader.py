@@ -19,6 +19,9 @@ class DataLoader:
             self._shuffle_dataset()
         return self
 
+    def __len__(self):
+        # Returns the number of batches
+        return int(np.ceil(len(self.dataset) / self.batch_size))
     def __next__(self):
         if self.drop_last and self.samples_drawn + self.batch_size > len(self.dataset):
             raise StopIteration
