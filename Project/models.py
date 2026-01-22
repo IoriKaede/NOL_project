@@ -1,14 +1,18 @@
+# models.py
 import numpy as np
 
 from supplementary import Value
 
 
 def weight_init_function(layer_size1: int, layer_size2: int):
-    return np.random.uniform(-1, 1, (layer_size1, layer_size2))
+    # Kaiming-He Initialization (Normal Distribution)
+    std = np.sqrt(2.0 / layer_size1)
+    return np.random.normal(0, std, (layer_size1, layer_size2))
 
 
 def bias_init_function(layer_size: int):
-    return np.random.uniform(-1, 1, layer_size)
+
+    return np.zeros(layer_size)
 
 
 class NeuralNetwork:
