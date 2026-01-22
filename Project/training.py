@@ -4,9 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # gives progression bars when running code
 
-from activation_functions import logi, softmax
+from activation_functions import logi, softmax, relu
 from data_loader import DataLoader
-from loss_functions import mse_loss
+from loss_functions import mse_loss, cross_entropy_loss
 from models import NeuralNetwork
 from supplementary import Value, load_mnist
 
@@ -56,7 +56,7 @@ test_dataset_size = len(test_dataset)
 # Initialize a neural network with some layers and the default activation functions.
 neural_network = NeuralNetwork(
     layers=[784, 256, 128, 64, 10],
-    activation_functions=[logi, logi, logi, softmax]
+    activation_functions=[relu, relu, relu, softmax]
 )
 # OR load the parameters of some other trained network from disk
 # neural_network = NeuralNetwork(
@@ -65,8 +65,8 @@ neural_network = NeuralNetwork(
 # ).load("path/to/some/folder")
 
 # Set training configuration
-learning_rate = 3e-3
-epochs = 10
+learning_rate = 0.01
+epochs = 50
 
 # Do the full training algorithm
 train_losses = []
@@ -93,7 +93,7 @@ for epoch in range(1, epochs+1):
         output = neural_network(images)
 
         # Compute the loss for this batch.
-        loss = mse_loss(
+        loss = cross_entropy_loss(
             output,
             labels
         )
@@ -119,7 +119,7 @@ for epoch in range(1, epochs+1):
         correctly_classified += np.sum(true_classification == predicted_classification)
 
     # Store the loss and average accuracy for the entire epoch.
-    train_losses.append(train_loss)
+    train_losses.append(train_loss / train_dataset_size)
     train_accuracies.append(correctly_classified / train_dataset_size)
 
     print(f"Accuracy: {train_accuracies[-1]}")
@@ -141,7 +141,7 @@ for epoch in range(1, epochs+1):
         output = neural_network(images)
 
         # Compute the loss for this batch.
-        loss = mse_loss(
+        loss = cross_entropy_loss(
             output,
             labels
         )
@@ -160,7 +160,7 @@ for epoch in range(1, epochs+1):
         )
         correctly_classified += np.sum(true_classification == predicted_classification)
 
-    validation_losses.append(validation_loss)
+    validation_losses.append(validation_loss / validation_dataset_size)
     validation_accuracies.append(correctly_classified / validation_dataset_size)
 
     print(f"Accuracy: {validation_accuracies[-1]}")
@@ -244,7 +244,7 @@ for batch in tqdm(test_loader, desc=f"Testing epoch {epoch}"):
     output = neural_network(images)
 
     # Compute the loss for this batch.
-    loss = mse_loss(
+    loss = cross_entropy_loss(
         output,
         labels
     )
