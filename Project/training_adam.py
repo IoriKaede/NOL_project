@@ -4,9 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # gives progression bars when running code
 
-from activation_functions import logi, softmax
+from activation_functions_adam import logi, relu, softmax
 from data_loader import DataLoader
-from loss_functions import mse_loss
+from loss_functions_adam import mse_loss, ce_loss
 from models_adam import NeuralNetwork
 from supplementary import Value, load_mnist
 
@@ -54,9 +54,13 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True, drop_last=Fa
 test_dataset_size = len(test_dataset)
 
 # Initialize a neural network with some layers and the default activation functions.
+# neural_network = NeuralNetwork(
+#     layers=[784, 256, 128, 64, 10],
+#     activation_functions=[logi, logi, logi, softmax]
+# )
 neural_network = NeuralNetwork(
     layers=[784, 256, 128, 64, 10],
-    activation_functions=[logi, logi, logi, softmax]
+    activation_functions=[relu, relu, relu, softmax]
 )
 # OR load the parameters of some other trained network from disk
 # neural_network = NeuralNetwork(
@@ -65,8 +69,8 @@ neural_network = NeuralNetwork(
 # ).load("path/to/some/folder")
 
 # Set training configuration
-learning_rate = 1e-4
-epochs = 100
+learning_rate = 1e-3
+epochs = 50
 
 # Do the full training algorithm
 train_losses = []
@@ -77,7 +81,7 @@ for epoch in range(1, epochs+1):
     # (Re)set the training loss for this epoch.
     train_loss = 0.0
     correctly_classified = 0
-    for batch in tqdm(train_loader, desc=f"Training epoch {epoch}"):
+    for batch in tqdm(train_loader, desc=f"Training epoch {epoch}", leave=True):
         # Reset the gradients so that we start fresh.
         neural_network.reset_gradients()
 
@@ -97,6 +101,10 @@ for epoch in range(1, epochs+1):
             output,
             labels
         )
+        # loss = ce_loss(
+        #     output,
+        #     labels
+        # )
 
         # Do backpropagation
         loss.backward()
@@ -128,7 +136,7 @@ for epoch in range(1, epochs+1):
 
     validation_loss = 0.0
     correctly_classified = 0
-    for batch in tqdm(validation_loader, desc=f"Validation epoch {epoch}"):
+    for batch in tqdm(validation_loader, desc=f"Validation epoch {epoch}", leave=True):
         # Get the images and labels from the batch
         images = np.vstack([image for (image, _) in batch])
         labels = np.vstack([label for (_, label) in batch])
@@ -145,6 +153,11 @@ for epoch in range(1, epochs+1):
             output,
             labels
         )
+        # loss = ce_loss(
+        #     output,
+        #     labels
+        # )
+
 
         # Store the loss for this batch.
         validation_loss += loss.data
@@ -231,7 +244,7 @@ figure.tight_layout()
 # Compute the test loss and accuracies on the same axes
 test_loss = 0.0
 correctly_classified = 0
-for batch in tqdm(test_loader, desc=f"Testing epoch {epoch}"):
+for batch in tqdm(test_loader, desc=f"Testing epoch {epoch}", leave=True):
     # Get the images and labels from the batch
     images = np.vstack([image for (image, _) in batch])
     labels = np.vstack([label for (_, label) in batch])
@@ -248,6 +261,10 @@ for batch in tqdm(test_loader, desc=f"Testing epoch {epoch}"):
         output,
         labels
     )
+    # loss = ce_loss(
+    #     output,
+    #     labels
+    # )
 
     # Store the loss for this batch.
     test_loss += loss.data
