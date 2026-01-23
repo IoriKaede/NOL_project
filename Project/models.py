@@ -9,6 +9,9 @@ def weight_init_function(layer_size1: int, layer_size2: int):
     std = np.sqrt(2.0 / layer_size1)
     return np.random.normal(0, std, (layer_size1, layer_size2))
 
+def he_weight_init(layer_size1: int, layer_size2: int):
+    std = np.sqrt(2.0 / layer_size1)
+    return np.random.randn(layer_size1, layer_size2) * std
 
 def bias_init_function(layer_size: int):
 
@@ -35,7 +38,7 @@ class NeuralNetwork:
             if i < self.number_of_layers:
                 # We initialize the weights transposed
                 self.weights.append(
-                    Value(weight_init_function(layer_size1=size, layer_size2=layers[i+1]), expr=f"$(W^T)^{{{i}}}$")
+                    Value(he_weight_init(layer_size1=size, layer_size2=layers[i+1]), expr=f"$(W^T)^{{{i}}}$")
                 )
 
     def __call__(self, x):

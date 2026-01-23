@@ -4,12 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # gives progression bars when running code
 
-from activation_functions import logi, softmax
+from activation_functions import logi, softmax, relu
 from data_loader import DataLoader
-from loss_functions import mse_loss,mae_loss,cross_entropy_loss, hinge_loss
+from loss_functions import mse_loss,mae_loss, cross_entropy_loss,hinge_loss
 from models import NeuralNetwork
 from supplementary import Value, load_mnist
-
 
 # Set printing precision for NumPy so that we don't get needlessly many digits in our answers.
 np.set_printoptions(precision=2)
@@ -54,93 +53,173 @@ test_dataset = list(zip(test_images, test_labels))
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True, drop_last=False)
 test_dataset_size = len(test_dataset)
 
-# Initialize a neural network with some layers and the default activation functions.
-neural_network = NeuralNetwork(
-    layers=[784, 256, 128, 64, 10],
-    activation_functions=[logi, logi, logi, softmax]
-)
-# OR load the parameters of some other trained network from disk
-# neural_network = NeuralNetwork(
-#   layers=[784, 256, 128, 64, 10],
-#   activation_functions=[logi, logi, logi, softmax]
-# ).load("path/to/some/folder")
-
-# Set training configuration
-learning_rate = 3e-3
-epochs = 30 #change epoch here <-
-
-results = {}
-loss_functions = { #loss fct setting
+loss_functions = { #loss function dic
     "MSE": mse_loss,
     "MAE": mae_loss,
-    "Cross-Entropy": cross_entropy_loss,
+    "CrossEntropy": cross_entropy_loss,
     "Hinge": hinge_loss
 }
+#for comparison
+all_train_losses = {}
+all_val_losses = {}
+all_train_accuracies = {}
+all_val_accuracies = {}
+# Set training configuration
+learning_rate = 0.01
+epochs = 50
+# Initialize a neural network with some layers and the default activation functions.
 
-
-for name, loss_fn in loss_functions.items():
-
-    net = NeuralNetwork(
+for loss_name, loss_fct in loss_functions.items():
+    print(f"{loss_name}")
+    neural_network = NeuralNetwork(
         layers=[784, 256, 128, 64, 10],
-        activation_functions=[logi, logi, logi, softmax]
+        activation_functions=[relu, relu, relu, softmax]
     )
-    history = {'train_loss': [], 'test_acc': []}
-    lr = 0.001  #standardize
 
-    for epoch in range(epochs):  # epoch numbers
-        epoch_loss = 0
+    # OR load the parameters of some other trained network from disk
+    # neural_network = NeuralNetwork(
+    #   layers=[784, 256, 128, 64, 10],
+    #   activation_functions=[logi, logi, logi, softmax]
+    # ).load("path/to/some/folder")
 
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}"):
-            net.reset_gradients()
+    # Do the full training algorithm
+    train_losses = []
+    validation_losses = []
+    train_accuracies = []
+    validation_accuracies = []
+    for epoch in range(1, epochs + 1):
+        # (Re)set the training loss for this epoch.
+        train_loss = 0.0
+        correctly_classified = 0
+        for batch in tqdm(train_loader, desc=f"Training epoch {epoch}"):
+            # Reset the gradients so that we start fresh.
+            neural_network.reset_gradients()
 
-            images = Value(np.vstack([b[0] for b in batch]))
-            labels = Value(np.vstack([b[1] for b in batch]))
+            # Get the images and labels from the batch
+            images = np.vstack([image for (image, _) in batch])
+            labels = np.vstack([label for (_, label) in batch])
 
-            output = net(images)
-            loss = loss_fn(output, labels)
+            # Wrap images and labels in a Value class.
+            images = Value(images, expr="X")
+            labels = Value(labels, expr="Y")
 
+            # Compute what the model says is the label.
+            output = neural_network(images)
+
+            # Compute the loss for this batch.
+            loss = loss_fct(
+                output,
+                labels
+            )
+
+            # Do backpropagation
             loss.backward()
-            net.gradient_descent(lr)
 
-            # should we calculate average? may fix the problem of loss gap
-            epoch_loss += loss.data
+            # Update the weights and biases using the chosen algorithm, in this case gradient descent.
+            neural_network.gradient_descent(learning_rate)
 
-        avg_loss = epoch_loss / len(train_loader)
-        history['train_loss'].append(avg_loss)
+            # Store the loss for this batch.
+            train_loss += loss.data
 
-        correct = 0
-        for batch in test_loader:
-            imgs = Value(np.vstack([b[0] for b in batch]))
-            b = np.vstack([b[1] for b in batch])
-            out = net(imgs)
-            correct += np.sum(np.argmax(out.data, axis=1) == np.argmax(b, axis=1))
+            # Store accuracies for extra interpretability
+            true_classification = np.argmax(
+                labels.data,
+                axis=1
+            )
+            predicted_classification = np.argmax(
+                output.data,
+                axis=1
+            )
+            correctly_classified += np.sum(true_classification == predicted_classification)
 
-        acc = correct / test_dataset_size #accuary check
-        history['test_acc'].append(acc)
-        print(f"{name} - accuarcy: {acc:.4f}, average loss: {avg_loss:.4f}")
+        # Store the loss and average accuracy for the entire epoch.
+        train_losses.append(train_loss / train_dataset_size)
+        train_accuracies.append(correctly_classified / train_dataset_size)
 
-    results[name] = history
+        print(f"Accuracy: {train_accuracies[-1]}")
+        print(f"Loss: {train_loss}")
+        print("")
 
+        validation_loss = 0.0
+        correctly_classified = 0
+        for batch in tqdm(validation_loader, desc=f"Validation epoch {epoch}"):
+            # Get the images and labels from the batch
+            images = np.vstack([image for (image, _) in batch])
+            labels = np.vstack([label for (_, label) in batch])
 
+            # Wrap images and labels in a Value class.
+            images = Value(images, expr="X")
+            labels = Value(labels, expr="Y")
 
-plt.figure()
+            # Compute what the model says is the label.
+            output = neural_network(images)
 
-for name in results:
-    plt.plot(results[name]['train_loss'], label=name)
-plt.title("Convergence comparison")
-plt.xlabel("Epochs")
-plt.ylabel("Average Loss")
-plt.legend()
+            # Compute the loss for this batch.
+            loss = loss_fct(
+                output,
+                labels
+            )
 
-plt.figure()
-for name in results:
-    plt.plot(results[name]['test_acc'], label=name)
-plt.title("Accuracy comparison")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.legend()
+            # Store the loss for this batch.
+            validation_loss += loss.data
 
-plt.tight_layout()
-plt.show()
+            # Store accuracies for extra interpretability
+            true_classification = np.argmax(
+                labels.data,
+                axis=1
+            )
+            predicted_classification = np.argmax(
+                output.data,
+                axis=1
+            )
+            correctly_classified += np.sum(true_classification == predicted_classification)
 
+        validation_losses.append(validation_loss / validation_dataset_size)
+        validation_accuracies.append(correctly_classified / validation_dataset_size)
 
+        print(f"Accuracy: {validation_accuracies[-1]}")
+        print(f"Loss: {validation_loss}")
+        print("")
+
+        # add storage
+        all_train_losses[loss_name] = train_losses.copy()
+        all_val_losses[loss_name] = validation_losses.copy()
+        all_train_accuracies[loss_name] = train_accuracies.copy()
+        all_val_accuracies[loss_name] = validation_accuracies.copy()
+
+    print(" === SUMMARY === ")
+    print(" --- training --- ")
+    print(f"Accuracies: {train_accuracies}")
+    print(f"Losses: {train_losses}")
+    print("")
+    print(" --- validation --- ")
+    print(f"Accuracies: {validation_accuracies}")
+    print(f"Losses: {validation_losses}")
+    print("")
+
+    plt.figure()
+    plt.title("Validation Loss Convergence Comparison")
+    for loss_name, losses in all_val_losses.items():
+        plt.semilogy(range(1, epochs + 1), losses, label=loss_name)
+    plt.xlabel("Epochs")
+    plt.ylabel("Validation Loss")
+    plt.legend()
+
+    # Accuracy convergence
+    plt.figure()
+    plt.title("Validation Accuracy Comparison")
+    for loss_name, accs in all_val_accuracies.items():
+        plt.plot(range(1, epochs + 1), accs, label=loss_name)
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+
+    # Final accuracy bar plot
+    plt.figure()
+    plt.title("Final Validation Accuracy Comparison")
+    names = list(all_val_accuracies.keys())
+    final_accs = [all_val_accuracies[n][-1] for n in names]
+    plt.bar(names, final_accs)
+    plt.ylabel("Accuracy")
+
+    plt.show()
