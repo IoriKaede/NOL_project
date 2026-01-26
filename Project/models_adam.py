@@ -20,7 +20,7 @@ def bias_init_function(layer_size: int):
     return np.zeros(layer_size)
 
 
-class NeuralNetwork:
+class NeuralNetwork_Adam:
     r"""Neural network class."""
 
     def __init__(self, layers, activation_functions):
