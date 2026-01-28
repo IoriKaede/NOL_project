@@ -20,7 +20,7 @@ def bias_init_function(layer_size: int):
     return np.zeros(layer_size)
 
 
-class NeuralNetwork_Adam:
+class NeuralNetwork:
     r"""Neural network class."""
 
     def __init__(self, layers, activation_functions):
@@ -63,7 +63,7 @@ class NeuralNetwork_Adam:
             x = activation_function(x @ weight + bias)
         return x
 
-    def adam_step(self, learning_rate, beta1=0.9, beta2=0.999, eps=1e-8):
+    def adam_step(self, lr, beta1=0.9, beta2=0.999, eps=1e-8):
         self.t += 1
         beta1_t = 1 - beta1**self.t
         beta2_t = 1 - beta2**self.t
@@ -79,7 +79,7 @@ class NeuralNetwork_Adam:
             c *= beta2
             c += (1 - beta2) * (g * g)
 
-            weight.data -= learning_rate * (v / beta1_t) / (np.sqrt(c / beta2_t) + eps)
+            weight.data -= lr * (v / beta1_t) / (np.sqrt(c / beta2_t) + eps)
 
         for i, bias in enumerate(self.biases):
             g = bias.grad
@@ -93,7 +93,7 @@ class NeuralNetwork_Adam:
             c *= beta2
             c += (1 - beta2) * (g * g)
 
-            bias.data -= learning_rate * (v / beta1_t) / (np.sqrt(c / beta2_t) + eps)
+            bias.data -= lr * (v / beta1_t) / (np.sqrt(c / beta2_t) + eps)
 
     def reset_gradients(self):
         for weight in self.weights:

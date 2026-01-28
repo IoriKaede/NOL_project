@@ -290,18 +290,17 @@ def train_network(learning_rate, epochs, optimizer, loss_function):
     # Save the parameters of the final network to disk
     # neural_network.save("some_folder")
 
-    return train_losses, validation_losses, train_accuracies, validation_accuracies
+    return neural_network, train_losses, validation_losses, train_accuracies, validation_accuracies
 
+e = 50
 
-e = 20
-
-adam_train_losses, adam_val_losses, adam_train_acc, adam_val_acc = train_network(
+adam_net, adam_train_losses, adam_val_losses, adam_train_acc, adam_val_acc = train_network(
     1e-3, e, "adam", cross_entropy_loss
 )
-sgd_train_losses_1, sgd_val_losses_1, sgd_train_acc_1, sgd_val_acc_1 = train_network(
+sgd_net_1, sgd_train_losses_1, sgd_val_losses_1, sgd_train_acc_1, sgd_val_acc_1 = train_network(
     1e-1, e, "sgd", cross_entropy_loss
 )
-sgd_train_losses_2, sgd_val_losses_2, sgd_train_acc_2, sgd_val_acc_2 = train_network(
+sgd_net_2, sgd_train_losses_2, sgd_val_losses_2, sgd_train_acc_2, sgd_val_acc_2 = train_network(
     1e-2, e, "sgd", cross_entropy_loss
 )
 
@@ -343,3 +342,54 @@ plt.xlabel("Epochs")
 plt.ylabel("Accuracy")
 plt.legend()
 plt.show()
+
+def flatten_params(net):
+    parameters = []
+    for w in net.weights:
+        parameters.append(w.data.flatten())
+    for b in net.biases:
+        parameters.append(b.data.flatten())
+    return np.concatenate(parameters)
+
+adam_params = flatten_params(adam_net)
+sgd1_params = flatten_params(sgd_net_1)
+sgd2_params = flatten_params(sgd_net_2)
+
+print("\nParameter distances:")
+print("||Adam - SGD (1e-1)|| =", np.linalg.norm(adam_params - sgd1_params))
+print("||Adam - SGD (1e-2)|| =", np.linalg.norm(adam_params - sgd2_params))
+print("||SGD (1e-1) - SGD (1e-2)|| =", np.linalg.norm(sgd1_params - sgd2_params))
+
+def function_distance(net1, net2, loader):
+    diffs = []
+    for batch in loader:
+        images = np.vstack([image for (image, _) in batch])
+        images = Value(images, expr="X")
+        out1 = net1(images).data
+        out2 = net2(images).data
+        diffs.append(np.mean((out1 - out2) ** 2))
+    return np.mean(diffs)
+
+print("\nFunction-space distances:")
+print("Adam vs SGD (1e-1):", function_distance(adam_net, sgd_net_1, test_loader))
+print("Adam vs SGD (1e-2):", function_distance(adam_net, sgd_net_2, test_loader))
+print("SGD (1e-1) vs SGD (1e-2):", function_distance(sgd_net_1, sgd_net_2, test_loader))
+
+def prediction_agreement(net1, net2, loader):
+    agree = 0
+    total = 0
+    for batch in loader:
+        images = np.vstack([image for (image, _) in batch])
+        images = Value(images, expr="X")
+        out1 = net1(images).data
+        out2 = net2(images).data
+        p1 = np.argmax(out1, axis=1)
+        p2 = np.argmax(out2, axis=1)
+        agree += np.sum(p1 == p2)
+        total += len(p1)
+    return agree / total
+
+print("\nPrediction agreement:")
+print("Adam vs SGD (1e-1):", prediction_agreement(adam_net, sgd_net_1, test_loader))
+print("Adam vs SGD (1e-2):", prediction_agreement(adam_net, sgd_net_2, test_loader))
+print("SGD (1e-1) vs SGD (1e-2):", prediction_agreement(sgd_net_1, sgd_net_2, test_loader))
